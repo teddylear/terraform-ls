@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
 
 	"github.com/hashicorp/terraform-ls/internal/document"
@@ -33,6 +33,7 @@ var (
 type pathToWatch struct{}
 
 type Walker struct {
+	fs        fs.FS
 	pathStore PathStore
 	modStore  ModuleStore
 
@@ -59,8 +60,9 @@ type ModuleStore interface {
 	Add(dir string) error
 }
 
-func NewWalker(pathStore PathStore, modStore ModuleStore, walkFunc WalkFunc) *Walker {
+func NewWalker(fs fs.FS, pathStore PathStore, modStore ModuleStore, walkFunc WalkFunc) *Walker {
 	return &Walker{
+		fs:                   fs,
 		pathStore:            pathStore,
 		modStore:             modStore,
 		walkFunc:             walkFunc,
@@ -157,10 +159,7 @@ func (w *Walker) isSkippableDir(dirName string) bool {
 }
 
 func (w *Walker) walk(ctx context.Context, dir document.DirHandle) error {
-	// We ignore the passed FS and instead read straight from OS FS
-	// because that would require reimplementing filepath.Walk and
-	// the data directory should never be on the virtual filesystem anyway
-	err := filepath.Walk(dir.Path(), func(path string, info os.FileInfo, err error) error {
+	err := fs.WalkDir(w.fs, dir.Path(), func(path string, info fs.DirEntry, err error) error {
 		select {
 		case <-ctx.Done():
 			w.logger.Printf("cancelling walk of %s...", dir)

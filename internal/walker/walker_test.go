@@ -234,7 +234,7 @@ func TestWalker_complexModules(t *testing.T) {
 			pa := state.NewPathAwaiter(ss.WalkerPaths, false)
 			indexer := indexer.NewIndexer(fs, ss.Modules, ss.ProviderSchemas, ss.RegistryModules, ss.JobStore,
 				exec.NewMockExecutor(tfCalls), registry.NewClient())
-			w := NewWalker(pa, ss.Modules, indexer.WalkedModule)
+			w := NewWalker(fs, pa, ss.Modules, indexer.WalkedModule)
 			w.Collector = NewWalkerCollector()
 			w.SetLogger(testLogger())
 			dir := document.DirHandleFromPath(tc.root)
