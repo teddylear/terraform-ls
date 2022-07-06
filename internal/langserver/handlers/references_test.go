@@ -132,6 +132,7 @@ output "foo" {
 }
 
 func TestReferences_variableToModuleInput(t *testing.T) {
+	// TODO: fix - fails w/ -count=2+
 	rootModPath, err := filepath.Abs(filepath.Join("testdata", "single-submodule"))
 	if err != nil {
 		t.Fatal(err)

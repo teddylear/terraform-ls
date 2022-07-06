@@ -11,7 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-ls/internal/document"
 	"github.com/hashicorp/terraform-ls/internal/job"
-	"github.com/hashicorp/terraform-ls/internal/terraform/datadir"
+	"github.com/hashicorp/terraform-ls/internal/terraform/ast"
 )
 
 var (
@@ -159,6 +159,8 @@ func (w *Walker) isSkippableDir(dirName string) bool {
 }
 
 func (w *Walker) walk(ctx context.Context, dir document.DirHandle) error {
+	dirsWalked := make(map[string]struct{}, 0)
+
 	err := fs.WalkDir(w.fs, dir.Path(), func(path string, info fs.DirEntry, err error) error {
 		select {
 		case <-ctx.Done():
@@ -186,7 +188,18 @@ func (w *Walker) walk(ctx context.Context, dir document.DirHandle) error {
 			return filepath.SkipDir
 		}
 
-		if info.Name() == datadir.DataDirName {
+		// TODO: replace local map lookup with w.modStore.HasChangedSince(modTime)
+		// once available
+		// See https://github.com/hashicorp/terraform-ls/issues/989
+		_, walked := dirsWalked[dir]
+
+		w.logger.Printf("walker checking file %q; !walked: %t && isModule: %t && !isIgnored: %t",
+			info.Name(),
+			walked, ast.IsModuleFilename(info.Name()), ast.IsIgnoredFile(info.Name()))
+
+		if !walked && ast.IsModuleFilename(info.Name()) && !ast.IsIgnoredFile(info.Name()) {
+			dirsWalked[dir] = struct{}{}
+
 			w.logger.Printf("found module %s", dir)
 
 			exists, err := w.modStore.Exists(dir)
@@ -210,8 +223,8 @@ func (w *Walker) walk(ctx context.Context, dir document.DirHandle) error {
 			return nil
 		}
 
-		if !info.IsDir() {
-			// All files are skipped, we only care about dirs
+		if info.IsDir() {
+			// All other files are skipped
 			return nil
 		}
 
